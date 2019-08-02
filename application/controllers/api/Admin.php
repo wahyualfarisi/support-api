@@ -18,14 +18,14 @@ class Admin extends REST_Controller {
         $this->token = $this->verify_request();
 
         $this->load->helper('validation/admin_validate_helper');
+        $this->load->helper('model/check_db_helper');
 
         //status code API
-        $this->bad  = parent::HTTP_BAD_REQUEST;
-        $this->good = parent::HTTP_OK;
+        $this->bad          = parent::HTTP_BAD_REQUEST;
+        $this->good         = parent::HTTP_OK;
         $this->server_error = parent::HTTP_INTERNAL_SERVER_ERROR;
-        $this->noauth = parent::HTTP_UNAUTHORIZED;
-        $this->notfound = parent::HTTP_NOT_FOUND;
-
+        $this->noauth       = parent::HTTP_UNAUTHORIZED;
+        $this->notfound     = parent::HTTP_NOT_FOUND;
     }
 
     public function index_get()
@@ -59,6 +59,15 @@ class Admin extends REST_Controller {
 
     public function index_post()
     {
+        if(!$this->token){
+            $status = $this->bad;
+            $res['status'] = $status;
+            $res['msg']    = 'Authorized denied';
+            $this->response($res, $status);
+            return;
+        }
+
+
         if($this->token->akses == 1)
         {
             if(!post_validate())
@@ -75,7 +84,7 @@ class Admin extends REST_Controller {
                 $data['password']    = md5($this->input->post('password') );
                 $data['akses']       = $this->input->post('akses');
 
-                if($this->check_db( array('email_admin' => $data['email_admin'] ) )->num_rows() > 0)
+                if(check_field_value_exists($this->tbl_admin, array('email_admin' => $data['email_admin']) ) > 0)
                 {
                     $status     = $this->bad;
                     $res['msg'] = 'Email is Already use';
@@ -119,7 +128,7 @@ class Admin extends REST_Controller {
                 if($target)
                 {
                     $where['email_admin'] = $target;
-                    if($this->check_db( $where )->num_rows() > 0 )
+                    if( check_field_value_exists($this->tbl_admin, $where) > 0 )
                     {
                         $delete = $this->m_core->delete_rows( $this->tbl_admin, $where );
                         if($delete)
@@ -189,7 +198,7 @@ class Admin extends REST_Controller {
             
                 $where['email_admin'] = $target;
 
-                if($this->check_db( $where )->num_rows() < 1)
+                if(check_field_value_exists($this->tbl_admin, $where) < 1)
                 {
                     $res['status'] = $this->notfound;
                     $res['msg']    = 'Email Tidak Di Temukan';
@@ -221,16 +230,9 @@ class Admin extends REST_Controller {
                 $res['status'] = $this->bad;
                 $this->response($res, $this->bad);
             }
-
-
         }
     }
 
-
-    private function check_db($where = [])
-    {
-        return $this->m_core->get_where($this->tbl_admin, $where);
-    }
 
 
     public function verify_request()
